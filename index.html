@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Topic Discovery in Documents</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f6f5;--card:#fff;--ink:#12302e;--mute:#5d7573;--line:#d3dedc;--bar:#e0a526;--acc:#0f6b66}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1b1a;--card:#162826;--ink:#e3efed;--mute:#93aeab;--line:#2a4240;--bar:#e0a526;--acc:#4fc1b8}}
+:root[data-theme="dark"]{--bg:#0e1b1a;--card:#162826;--ink:#e3efed;--mute:#93aeab;--line:#2a4240;--bar:#e0a526;--acc:#4fc1b8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+h1{font:700 2rem/1.15 Georgia,"Times New Roman",serif;margin:0 0 6px}
+h2{font:700 1.25rem Georgia,serif;margin:28px 0 10px}
+p.sub{color:var(--mute);margin:0 0 18px;max-width:64ch}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px}
+textarea{height:170px;font-size:.85rem}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button{font:inherit;font-weight:600;background:var(--acc);color:#fff;border:0;border-radius:6px;padding:9px 18px;cursor:pointer}
+:root[data-theme="dark"] button{color:#06201e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button{color:#06201e}}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--bar);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.w{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;font-size:.85rem;margin:3px 0}
+.b{height:10px;background:var(--bar);border-radius:2px;min-width:2px}
+.t{font-weight:700;margin-bottom:6px}
+.m{color:var(--mute);font-size:.8rem}
+details{margin-top:8px;font-size:.82rem}
+details li{margin:3px 0}
+.hit{padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.hit:first-child{border-top:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Topic Discovery in Documents</h1>
+<p class="sub">Information Retrieval mini project. Documents are converted to TF-IDF vectors, NMF groups co-occurring words into topics, and cosine similarity ranks documents for a search query. Everything runs in your browser.</p>
+
+<div class="box">
+<label for="docs"><b>Documents</b> <span class="m">(one per line, replace with your own)</span></label>
+<textarea id="docs"></textarea>
+<div class="row">
+<label for="k">Number of topics: <b id="kv">5</b></label>
+<input type="range" id="k" min="2" max="8" value="5">
+<button id="run">Discover topics</button>
+</div>
+</div>
+
+<h2>Discovered topics</h2>
+<div id="topics" class="grid"></div>
+
+<h2>Search or classify new text</h2>
+<div class="box">
+<label for="q" class="m">Type a query or paste a sentence</label>
+<input type="text" id="q" value="rocket launch to the moon">
+<div class="row"><button id="go">Analyze text</button></div>
+<div id="out"></div>
+</div>
+</main>
+<script>
+const SAMPLE=`The rocket launch carried a new satellite into orbit around Earth
+Astronomers discovered a distant planet orbiting a bright star using the telescope
+NASA plans a mission to land astronauts on the moon and later on Mars
+The space station crew performed a spacewalk to repair the solar panels
+A galaxy far away contains billions of stars and a massive black hole
+The telescope captured images of a nebula where new stars are forming
+Engineers tested the rocket engine before the next mission to orbit
+Mars rover samples may show signs of ancient life on the planet
+India won the cricket match with a brilliant century from the captain
+The bowler took five wickets and the team won the tournament final
+Fans filled the stadium to watch the cricket world cup match
+The batsman hit a six in the last over to win the match for the team
+The coach praised the team after a hard fought league victory
+The player scored two goals and the team reached the championship final
+A young bowler impressed selectors during the domestic tournament
+The captain announced the squad for the upcoming series against Australia
+Doctors recommend regular exercise and a balanced diet to protect your heart
+The hospital introduced a new treatment for patients with diabetes
+Vitamins and healthy food help the body fight infection and disease
+A clinical trial showed the vaccine reduced the risk of serious illness
+Sleep and stress affect mental health and blood pressure
+The patient recovered after surgery and medicine prescribed by the doctor
+Nurses reminded patients to take the medicine and drink water daily
+Researchers studied how diet and exercise lower the risk of heart disease
+The programmer wrote Python code to train a machine learning model
+Neural networks learn patterns from large datasets using GPU computing
+The software team released a new version of the web application
+Developers fixed a security bug in the database server code
+Artificial intelligence models can classify text and generate language
+The startup built a mobile app using cloud computing and open source software
+Data scientists cleaned the dataset before training the algorithm
+A search engine ranks web pages using algorithms and indexing
+Add chopped onion and garlic to the hot oil and fry until golden
+Bake the cake in the oven and mix flour sugar and butter well
+The chef served spicy curry with rice and fresh bread
+Simmer the tomato sauce with herbs and pour it over the pasta
+Whisk eggs with milk and cook the omelette in a pan with butter
+Marinate the chicken in yogurt and spices before grilling the dish
+A bowl of soup with vegetables and pepper is perfect for dinner
+Roll the dough and bake the bread until the crust turns brown`;
+const STOP=new Set("the and for with that this from are was were has have had into over after before about your you not but can may will its their then than them they his her she him who how why all any one two new use used using more most also very when where which what while each other such only some".split(" "));
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tok=s=>(s.toLowerCase().match(/[a-z]{3,}/g)||[]).filter(w=>!STOP.has(w));
+const T=A=>A[0].map((_,j)=>A.map(r=>r[j]));
+const mul=(A,B)=>{const Bt=T(B);return A.map(r=>Bt.map(c=>r.reduce((s,v,i)=>s+v*c[i],0)))};
+let S=null;
+
+$("docs").value=SAMPLE;
+$("k").oninput=()=>$("kv").textContent=$("k").value;
+
+function run(){
+  const docs=$("docs").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const k=+$("k").value, n=docs.length;
+  if(n<4){$("topics").innerHTML="<p>Add at least 4 documents.</p>";return}
+  const toks=docs.map(tok), df={};
+  toks.forEach(t=>new Set(t).forEach(w=>df[w]=(df[w]||0)+1));
+  const vocab=Object.keys(df).filter(w=>df[w]>=2&&df[w]<=0.8*n);
+  const idx={};vocab.forEach((w,i)=>idx[w]=i);
+  const idf=vocab.map(w=>Math.log((1+n)/(1+df[w]))+1);
+  const vec=t=>{const v=new Array(vocab.length).fill(0);
+    t.forEach(w=>{if(w in idx)v[idx[w]]++});
+    const x=v.map((c,i)=>c*idf[i]);const nm=Math.hypot(...x)||1;return x.map(a=>a/nm)};
+  const X=toks.map(vec);
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  let W=X.map(()=>Array.from({length:k},()=>rnd()*.5+.1));
+  let H=Array.from({length:k},()=>vocab.map(()=>rnd()*.5+.1));
+  for(let it=0;it<150;it++){          // NMF multiplicative updates
+    const Wt=T(W),num=mul(Wt,X),den=mul(mul(Wt,W),H);
+    H=H.map((r,i)=>r.map((v,j)=>v*num[i][j]/(den[i][j]+1e-9)));
+    const Ht=T(H),n2=mul(X,Ht),d2=mul(mul(W,H),Ht);
+    W=W.map((r,i)=>r.map((v,j)=>v*n2[i][j]/(d2[i][j]+1e-9)));
+  }
+  const top=H.map(r=>r.map((v,j)=>[v,j]).sort((a,b)=>b[0]-a[0]).slice(0,8).map(([v,j])=>[vocab[j],v]));
+  const assign=W.map(r=>r.indexOf(Math.max(...r)));
+  S={docs,vec,H,X,k,top};
+  $("topics").innerHTML=top.map((tw,i)=>{
+    const mx=tw[0][1], mine=docs.filter((_,d)=>assign[d]===i);
+    return `<div class="box"><div class="t">Topic ${i+1}: ${tw.slice(0,3).map(x=>x[0]).join(", ")}</div>`+
+      tw.map(([w,v])=>`<div class="w"><span>${w}</span><span class="b" style="width:${Math.max(3,v/mx*100)}%"></span></div>`).join("")+
+      `<details><summary>${mine.length} documents</summary><ul>${mine.map(d=>`<li>${esc(d)}</li>`).join("")}</ul></details></div>`;
+  }).join("");
+  analyze();
+}
+
+function analyze(){
+  if(!S)return;
+  const text=$("q").value, {H,X,docs,k,top,vec}=S;
+  const x=[vec(tok(text))], Ht=T(H), HHt=mul(H,Ht), xHt=mul(x,Ht);
+  if(!x[0].some(v=>v>0)){$("out").innerHTML='<p class="m">No known words in this text. Try words from the documents.</p>';return}
+  let h=[Array(k).fill(.5)];            // fit topic weights for new text
+  for(let it=0;it<200;it++){const d=mul(h,HHt)[0];h=[h[0].map((v,j)=>v*xHt[0][j]/(d[j]+1e-9))]}
+  const sum=h[0].reduce((a,b)=>a+b,0)||1;
+  const dist=h[0].map((v,i)=>[v/sum,i]).sort((a,b)=>b[0]-a[0]);
+  const hits=X.map((d,i)=>[d.reduce((s,v,j)=>s+v*x[0][j],0),i]).sort((a,b)=>b[0]-a[0]).slice(0,5).filter(a=>a[0]>0);
+  $("out").innerHTML=`<h2>Best topic: Topic ${dist[0][1]+1} (${top[dist[0][1]].slice(0,3).map(a=>a[0]).join(", ")})</h2>`+
+    dist.slice(0,4).map(([p,i])=>`<div class="w"><span>Topic ${i+1}</span><span class="b" style="width:${Math.max(2,p*100)}%"></span></div>`).join("")+
+    `<h2>Top matching documents (cosine similarity)</h2>`+
+    (hits.length?hits.map(([s,i])=>`<div class="hit"><b>${s.toFixed(3)}</b> &nbsp;${esc(docs[i])}</div>`).join(""):'<p class="m">No matching documents.</p>');
+}
+$("run").onclick=run;$("go").onclick=analyze;
+$("q").addEventListener("keydown",e=>{if(e.key==="Enter")analyze()});
+run();
+</script>
+</body>
+</html>
